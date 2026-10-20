@@ -10,11 +10,22 @@ from ..database import get_db
 from ..deps import current_profile, profile_out
 from ..media import delete_photo, hash_token, save_photo
 from ..models import Profile
+from ..phone import phone_key
 from ..schemas import ProfileOut, ProfileUpdate, RegisterOut
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 CHATID_RE = re.compile(r"^\d{4,16}$")
+
+
+def _check_phone(db: Session, phone: str, owner_id: int | None = None) -> str:
+    key = phone_key(phone)
+    if key is None:
+        raise HTTPException(422, "Enter a valid phone number")
+    other = db.scalar(select(Profile).where(Profile.phone_key == key))
+    if other is not None and other.id != owner_id:
+        raise HTTPException(409, "That phone number is already registered")
+    return key
 
 
 @router.post("", response_model=RegisterOut, status_code=201)
@@ -23,6 +34,7 @@ async def register(
     chatid: str = Form(..., max_length=16),
     name: str = Form(..., min_length=1, max_length=80),
     bio: str = Form("", max_length=280),
+    phone: str = Form("", max_length=24),
     photo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -35,6 +47,9 @@ async def register(
     if db.scalar(select(Profile.id).where(Profile.chatid == chatid)):
         raise HTTPException(409, "That chat ID is already taken, choose another")
 
+    phone = phone.strip()
+    key = _check_phone(db, phone) if phone else None
+
     filename = await save_photo(photo) if photo is not None else None
     token = secrets.token_urlsafe(32)
 
@@ -43,6 +58,8 @@ async def register(
         name=name,
         bio=bio.strip(),
         photo_filename=filename,
+        phone=phone or None,
+        phone_key=key,
         token_hash=hash_token(token),
     )
     db.add(profile)
@@ -53,12 +70,12 @@ async def register(
         delete_photo(filename)
         raise HTTPException(409, "That chat ID is already taken, choose another")
 
-    return RegisterOut(profile=profile_out(profile, request), token=token)
+    return RegisterOut(profile=profile_out(profile, request, include_phone=True), token=token)
 
 
 @router.get("/me", response_model=ProfileOut)
 def me(request: Request, profile: Profile = Depends(current_profile)):
-    return profile_out(profile, request)
+    return profile_out(profile, request, include_phone=True)
 
 
 @router.patch("/me", response_model=ProfileOut)
@@ -72,9 +89,17 @@ def update_me(
         profile.name = body.name
     if body.bio is not None:
         profile.bio = body.bio.strip()
+    if body.phone is not None:
+        phone = body.phone.strip()
+        if phone:
+            profile.phone_key = _check_phone(db, phone, owner_id=profile.id)
+            profile.phone = phone
+        else:
+            profile.phone = None
+            profile.phone_key = None
     db.add(profile)
     db.commit()
-    return profile_out(profile, request)
+    return profile_out(profile, request, include_phone=True)
 
 
 @router.put("/me/photo", response_model=ProfileOut)
@@ -90,7 +115,7 @@ async def change_photo(
     db.add(profile)
     db.commit()
     delete_photo(old)
-    return profile_out(profile, request)
+    return profile_out(profile, request, include_phone=True)
 
 
 @router.delete("/me/photo", response_model=ProfileOut)
@@ -104,7 +129,7 @@ def remove_photo(
     db.add(profile)
     db.commit()
     delete_photo(old)
-    return profile_out(profile, request)
+    return profile_out(profile, request, include_phone=True)
 
 
 @router.get("/lookup/{chatid}", response_model=ProfileOut)

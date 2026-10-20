@@ -19,6 +19,9 @@ class Profile(Base):
     name: Mapped[str] = mapped_column(String(80))
     bio: Mapped[str] = mapped_column(String(280), default="")
     photo_filename: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Optional: lets the name/photo show when this person calls you.
+    phone: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    phone_key: Mapped[str | None] = mapped_column(String(9), unique=True, index=True, nullable=True)
     # Only a SHA-256 hash of the device token is stored.
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -43,3 +46,14 @@ class Contact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     target: Mapped[Profile] = relationship(foreign_keys=[target_id], lazy="joined")
+
+
+class Call(Base):
+    """One call placed from the app (for the admin analytics)."""
+
+    __tablename__ = "calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    caller_id: Mapped[int] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), index=True)
+    target_id: Mapped[int] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

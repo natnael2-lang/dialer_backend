@@ -23,7 +23,7 @@ def current_profile(
     return profile
 
 
-def profile_out(p: Profile, request: Request) -> ProfileOut:
+def profile_out(p: Profile, request: Request, include_phone: bool = False) -> ProfileOut:
     url = None
     if p.photo_filename:
         url = f"{str(request.base_url).rstrip('/')}/media/{p.photo_filename}"
@@ -32,4 +32,5 @@ def profile_out(p: Profile, request: Request) -> ProfileOut:
         name=p.name,
         bio=p.bio or "",
         photo_url=url,
+        phone=p.phone if include_phone else None,  # never leak other people's numbers
     )

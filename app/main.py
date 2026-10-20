@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import MEDIA_DIR
 from .database import Base, engine
-from .routers import contacts, profiles
+from .routers import admin, callers, calls, contacts, profiles
 
 
 @asynccontextmanager
@@ -22,6 +22,9 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 app.include_router(profiles.router)
 app.include_router(contacts.router)
+app.include_router(callers.router)
+app.include_router(calls.router)
+app.include_router(admin.router)
 
 # Photos have unique filenames, so they can be cached aggressively.
 class ImmutableStatic(StaticFiles):

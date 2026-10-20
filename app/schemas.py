@@ -10,6 +10,7 @@ class ProfileOut(BaseModel):
     name: str
     bio: str
     photo_url: str | None = None
+    phone: str | None = None  # only filled in for your own profile
 
 
 class RegisterOut(BaseModel):
@@ -20,6 +21,7 @@ class RegisterOut(BaseModel):
 class ProfileUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     bio: str | None = Field(default=None, max_length=280)
+    phone: str | None = Field(default=None, max_length=24)  # "" clears it
 
     @field_validator("name")
     @classmethod
@@ -53,3 +55,7 @@ class ContactOut(BaseModel):
     id: int
     nickname: str
     profile: ProfileOut
+
+
+class CallCreate(BaseModel):
+    chatid: str = Field(min_length=3, max_length=16, pattern=r"^\d+$")
