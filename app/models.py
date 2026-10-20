@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -18,10 +18,15 @@ class Profile(Base):
     chatid: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(80))
     bio: Mapped[str] = mapped_column(String(280), default="")
+    address: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    # False = hidden from name search; still reachable by exact chat ID.
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     photo_filename: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Optional: lets the name/photo show when this person calls you.
     phone: Mapped[str | None] = mapped_column(String(24), nullable=True)
     phone_key: Mapped[str | None] = mapped_column(String(9), unique=True, index=True, nullable=True)
+    # PBKDF2 hash. NULL for accounts created before passwords existed.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Only a SHA-256 hash of the device token is stored.
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

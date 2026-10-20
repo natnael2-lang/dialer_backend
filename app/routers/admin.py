@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..config import ADMIN_KEY
 from ..database import get_db
+from ..deps import base_url
 from ..models import Call, Contact, Profile
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -113,7 +114,7 @@ def users(
         total_stmt = total_stmt.where(cond)
 
     rows = db.execute(stmt.order_by(Profile.created_at.desc()).limit(limit).offset(offset)).all()
-    base = str(request.base_url).rstrip("/")
+    base = base_url(request)
     return {
         "total": db.scalar(total_stmt) or 0,
         "items": [
