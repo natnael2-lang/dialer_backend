@@ -27,4 +27,9 @@ def profile_out(p: Profile, request: Request) -> ProfileOut:
     url = None
     if p.photo_filename:
         url = f"{str(request.base_url).rstrip('/')}/media/{p.photo_filename}"
-    return ProfileOut(chatid=p.chatid, name=p.name, bio=p.bio or "", photo_url=url)
+    return ProfileOut(
+        chatid=p.chatid,
+        name=p.name,
+        bio=p.bio or "",
+        photo_url=url,
+    )

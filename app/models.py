@@ -14,7 +14,7 @@ class Profile(Base):
     __tablename__ = "profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Server-generated, unique, immutable. This is what gets dialed.
+    # Chosen by the user at registration, unique, immutable. This is what gets dialed.
     chatid: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(80))
     bio: Mapped[str] = mapped_column(String(280), default="")

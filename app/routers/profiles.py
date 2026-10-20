@@ -1,3 +1,4 @@
+import re
 import secrets
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -13,18 +14,13 @@ from ..schemas import ProfileOut, ProfileUpdate, RegisterOut
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
-
-def _new_chatid(db: Session) -> str:
-    for _ in range(20):
-        candidate = str(secrets.randbelow(9_000_000) + 1_000_000)  # 7 digits
-        if not db.scalar(select(Profile.id).where(Profile.chatid == candidate)):
-            return candidate
-    raise HTTPException(500, "Could not allocate a chat ID, try again")
+CHATID_RE = re.compile(r"^\d{4,16}$")
 
 
 @router.post("", response_model=RegisterOut, status_code=201)
 async def register(
     request: Request,
+    chatid: str = Form(..., max_length=16),
     name: str = Form(..., min_length=1, max_length=80),
     bio: str = Form("", max_length=280),
     photo: UploadFile | None = File(None),
@@ -33,27 +29,29 @@ async def register(
     name = " ".join(name.split())
     if not name:
         raise HTTPException(422, "Name is required")
+    chatid = chatid.strip()
+    if not CHATID_RE.match(chatid):
+        raise HTTPException(422, "Chat ID must be 4 to 16 digits")
+    if db.scalar(select(Profile.id).where(Profile.chatid == chatid)):
+        raise HTTPException(409, "That chat ID is already taken, choose another")
 
     filename = await save_photo(photo) if photo is not None else None
     token = secrets.token_urlsafe(32)
 
-    for _ in range(3):
-        profile = Profile(
-            chatid=_new_chatid(db),
-            name=name,
-            bio=bio.strip(),
-            photo_filename=filename,
-            token_hash=hash_token(token),
-        )
-        db.add(profile)
-        try:
-            db.commit()
-            break
-        except IntegrityError:  # chatid collision under concurrency
-            db.rollback()
-    else:
+    profile = Profile(
+        chatid=chatid,
+        name=name,
+        bio=bio.strip(),
+        photo_filename=filename,
+        token_hash=hash_token(token),
+    )
+    db.add(profile)
+    try:
+        db.commit()
+    except IntegrityError:  # someone took the chat ID a moment ago
+        db.rollback()
         delete_photo(filename)
-        raise HTTPException(500, "Could not register, try again")
+        raise HTTPException(409, "That chat ID is already taken, choose another")
 
     return RegisterOut(profile=profile_out(profile, request), token=token)
 
